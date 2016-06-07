@@ -2,7 +2,7 @@
 ##  RAT DENSITY ESTIMATION ON HENDERSON ISLAND  - RUNNING THE RD SECR MODEL 		###
 #######################################################################################
 
-## model based on Ergon, T., Gardner, B., 2014. Separating mortality and emigration: modelling space use, dispersal and survival with robust-design spatial capture–recapture data. Meth. Ecol. Evol. 5, 1327–1336.
+## model based on Ergon, T., Gardner, B., 2014. Separating mortality and emigration: modelling space use, dispersal and survival with robust-design spatial captureâ€“recapture data. Meth. Ecol. Evol. 5, 1327â€“1336.
 ## modified by steffen.oppel@rspb.org.uk on 30 May 2015
 ## updated on 11 Dez 2015, after incorporating Phase 2 data
 ## updated on 4 April 2016: introduced a secondary-occasion and location specific recapture probability depending on trap type
@@ -319,7 +319,7 @@ nc <- 8		## number of chains
 inits = list(rep(Inits(H,X=X,K=K),nc))
 
 # Fitting the model in JAGS (iter+burnin = 3500 on 6 chains took 8 hrs)
-ratmodel <- jags(JAGS.data, inits, params, "S:\\ConSci\\DptShare\\SteffenOppel\\RSPB\\UKOT\\Henderson\\Analyses\\Rats\\Rat_RD_SECR.jags", n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel=T, n.cores=6)
+ratmodel <- jags(JAGS.data, inits, params, "S:\\ConSci\\DptShare\\SteffenOppel\\RSPB\\UKOT\\Henderson\\Analyses\\Rats\\Rat_RD_SECR.jags", n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel=T, n.cores=nc)
 
 # Summary:
 summary(ratmodel)
