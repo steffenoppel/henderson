@@ -316,7 +316,7 @@ nb <- 1000		## 'burn-in' - the number of iterations that are discarded at the st
 nc <- 8		## number of chains
 
 # Generating initial values for all chains
-inits = list(rep(Inits(H,X=X,K=K),nc))
+inits = list(Inits(H,X=X,K=K),Inits(H,X=X,K=K),Inits(H,X=X,K=K),Inits(H,X=X,K=K),Inits(H,X=X,K=K),Inits(H,X=X,K=K))
 
 # Fitting the model in JAGS (iter+burnin = 3500 on 6 chains took 8 hrs)
 ratmodel <- jags(JAGS.data, inits, params, "S:\\ConSci\\DptShare\\SteffenOppel\\RSPB\\UKOT\\Henderson\\Analyses\\Rats\\Rat_RD_SECR.jags", n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel=T, n.cores=nc)
