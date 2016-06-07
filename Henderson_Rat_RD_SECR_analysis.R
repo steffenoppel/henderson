@@ -20,8 +20,6 @@
 setwd("S:\\ConSci\\DptShare\\SteffenOppel\\RSPB\\UKOT\\Henderson\\Analyses\\Rats")
 setwd("C:\\STEFFEN\\RSPB\\UKOT\\Henderson\\Analyses\\Rats")
 
-save.image("S:\\ConSci\\DptShare\\SteffenOppel\\RSPB\\UKOT\\Henderson\\Analyses\\Rats\\RD_SECR_input_data.RData")
-
 
 # PARAMETERS:
 # - kappa, sigma and lambda: Space use and recapture probability parameters
