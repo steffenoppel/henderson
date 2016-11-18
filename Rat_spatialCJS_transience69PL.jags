@@ -1,0 +1,92 @@
+
+
+model {
+
+
+#### PRIORS ####
+
+## Movement around home-range centre affects capture probability ###
+### NEED TO MAKE TEMPORALLY VARIABLE ###
+#for(a in 1:2){# allow different sigma for two age classes
+for (s in 1:2){# allow different sigma for two sexes
+sigma[s] ~ dunif(0, 80)     # set up the priors for the time-invariant parameters
+sigma2[s] <- sigma[s]*sigma[s]
+}
+#}
+
+## Capture probability depends on trap type and season###
+#for(t in 1:T){
+for (u in 1:2){## capture probability differs by traptype
+lam0[u]~dgamma(0.1,0.1)
+}
+#}
+
+## Survival probability varies by season - specified as daily survival###
+for(t in 1:7){### manually specified 7 primary sessions - assume that daily survival is identical within a primary session
+daily.phi[t]~dunif(0.99, 1)
+}
+
+## Movement between primary sessions ###
+sigma.ar~dunif(0,200)
+tau<-1/(sigma.ar*sigma.ar)
+
+
+
+#### MODEL ####       
+   for (i in 1:M){    # loop through the population of M trapped rats
+       z[i,first[i]] <- 1       # CJS is conditional on capture, so alive state in first capture period must be 1   
+       SX[i,first[i]]~dunif(xl[i], xu[i])    # priors for the activity centers for each individual at first capture
+       SY[i,first[i]]~dunif(yl[i], yu[i])    # xl is the lower x coordinate, xu is the upper x value
+
+## OBSERVATION MODEL FOR FIRST SESSION ##
+     for(j in 1:ntraps) {     #loop through the J trap locations
+           Dist[i,j,first[i]] <- pow(pow(SX[i,first[i]]-grid[j,1], 2) + pow(SY[i,first[i]]-grid[j,2],2),0.5)## calculate distance from home range center to each trap location
+           lam[i,j,first[i]] <- lam0[ttyp[j,sess.vec[first[i]]]]*exp(-Dist[i,j,first[i]]/sigma[ALT[i]])## exponential detection function based on distance
+           tmp[i,j,first[i]] <- lam[i,j,first[i]]*K[j,first[i]]## set capt prob to 0 if trap was not available
+           y[i,j,first[i]] ~ dbern(tmp[i,j,first[i]])## bernoulli draw of observation at trap j as capture probability
+}# close the trap loop for first capture period
+
+## OBSERVATION MODEL FOR SUBSEQUENT SESSIONS ##       
+for(t in (first[i]+1):T){   # loop through the primary periods after the first capture session
+       SX[i,t]~dnorm(SX[i,t-1], tau)    # priors for the long of activity center based on movement from first capture location
+       SY[i,t]~dnorm(SY[i,t-1], tau)   # priors for the lat of activity center based on movement from first capture location
+HR_shift[i,t] <- pow(pow(SX[i,t]-SX[i,t-1], 2) + pow(SY[i,t]-SY[i,t-1],2),0.5)## shift of home range centre from one prim occ to next
+
+     for(j in 1:ntraps) {     #loop through the J trap locations
+           Dist[i,j,t] <- pow(pow(SX[i,t]-grid[j,1], 2) + pow(SY[i,t]-grid[j,2],2),0.5)## calculate distance from home range center to each trap location
+           lam[i,j,t] <- lam0[ttyp[j,sess.vec[t]]]*exp(-Dist[i,j,t]/sigma[ALT[i]])## exponential detection function based on distance
+           tmp[i,j,t] <- lam[i,j,t]*K[j,t]*z[i,t]## set capt prob to 0 if trap was not available
+           y[i,j,t] ~ dbern(tmp[i,j,t])## bernoulli draw of observation at trap j as capture probability 
+}# close the trap loop for subsequent capture periods
+
+### SURVIVAL MODEL FOR TIME PERIOD T ##
+phi[i,t-1]<-pow(daily.phi[sess.vec[t-1]],interval[t-1])  ## survival probability for specified time period adjusted for length
+phiUP[i,t]<-z[i,t-1]*phi[i,t-1]## individual survival probability based on alive state in previous occasion
+z[i,t]~dbern(phiUP[i,t])
+
+} ## close the primary session loop
+
+          }## close the individual loop
+
+
+
+### DERIVED PARAMETERS FOR SURVIVAL AND CAPTURE PROBABILITY ###
+capt.prob.Sherman<- mean(lam0[1])
+capt.prob.Tomahawk<- mean(lam0[2])
+
+for(t in 1:7){
+month.surv[t]<- pow(daily.phi[t],30)
+}
+
+
+
+### DERIVED PARAMETER FOR DAILY SHIFT IN HOME RANGE CENTRE ###
+for(t in 1:(T-1)){
+mean.shift[t]<- mean(HR_shift[,t])/interval[t]
+}
+
+
+
+} ## close the model loop
+
+

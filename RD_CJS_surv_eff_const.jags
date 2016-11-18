@@ -1,0 +1,128 @@
+
+
+model{
+
+## PRIORS AND CONSTRAINTS ##
+
+#  Space use and recapture probability parameters:
+beta.size ~ dunif(-10,10)## adjust sigma according to size
+beta.size.sq ~ dunif(-10,10)## adjust sigma according to size, quadratic effect
+
+
+for(sex in 1:2){
+  sigma.int[sex] ~ dunif(0,200)
+#for(k in 1:n.prim){
+
+## RANDOM MOVEMENT PARAMETER ###
+sigma.ranef[sex]~dunif(0,200)
+tau.sig[sex]<-1/(sigma.ranef[sex]*sigma.ranef[sex])
+#}
+}
+
+#for(sex in 1:2){
+  for(TOD in 1:2){### TOD is trap type
+    lambda[TOD] <- exp(log.lambda0) * pow(beta[1],(TOD-1)) ## * pow(beta[2],(sex-1))
+  }
+#}
+PL ~ dunif(0.01,0.99)
+log.lambda0 <- log(-log(1-PL)) 
+beta[1] ~ dunif(0.1,10)
+#beta[2] ~ dunif(0.1,10)
+
+
+
+#### SEX AND SEASON SPECIFIC PARAMETERS ####
+
+   for(sex in 1:2){
+
+## Movement between primary sessions ###
+sigma.ar[sex]~dunif(0,200)
+tau[sex]<-1/(sigma.ar[sex]*sigma.ar[sex])
+
+    for(k in 1:(n.prim-1)){
+
+## Survival parameters ###
+daily.phi[sex,k] ~ dunif(0.95,1)### 0.997,0.9994
+ annual.surv[sex,k]<-pow(daily.phi[sex,k], 365)
+ monthly.surv[sex,k]<-pow(daily.phi[sex,k], 30)
+    phi[sex,k] <- pow(daily.phi[sex,k], dt[k])
+
+  }
+}
+
+
+
+## MODEL - SIMPLIFIED BY ALLOWING ALL RATS TO HAVE A NEW HOME RANGE CENTRE IN EACH PRIMARY SESSION ##
+
+## SURVIVAL & HOME RANGE CENTRES
+
+## Primary first session
+
+for(i in 1:N[2]){
+  
+  z[i,first[i]] ~ dbern(1)
+
+  S[i,1,first[i]] ~ dunif(xlow[i], xupp[i]) # Prior for the first x coordinate
+  S[i,2,first[i]] ~ dunif(ylow[i], yupp[i]) # Prior for the first y coordinate  
+}
+
+## Later primary sessions
+
+for(i in (N[1]+1):N[2]){
+  
+  for(k in (first[i]+1):K[i]){
+
+    z[i,k] ~ dbern(Palive[i,k-1])
+
+    Palive[i,k-1] <- z[i,k-1] * phi[gr[i],k-1] # Pr(alive in primary session k) gr[i] = sex
+
+    S[i,1,k] ~ dnorm(S[i,1,k-1], tau[gr[i]])#T(xlow[i], xupp[i]) # priors for the activity centers based on movement from first capture location, truncated by state space
+    S[i,2,k] ~ dnorm(S[i,2,k-1], tau[gr[i]])#T(ylow[i], yupp[i]) # priors for the activity centers based on movement from first capture location, truncated by state space
+        
+    reloc.dist[i,k-1]<- sqrt(((S[i,1,k]-S[i,1,k-1]) * (S[i,1,k]-S[i,1,k-1])) + ((S[i,2,k]-S[i,2,k-1]) * (S[i,2,k]-S[i,2,k-1])))  # DISTANCE between subsequent home range centers
+  }
+}
+
+
+for(i in 1:N[2]){
+  
+  for(k in (first[i]):K[i]){
+eps[i,k] ~ dnorm(0,tau.sig[gr[i]])## insert random effect for sigma
+sigma[i,k] <-sigma.int[gr[i]] + beta.size*size[i]  + beta.size.sq*(size[i]*size[i])+ eps[i,k]## define sigma based on body size
+    
+    ## ####################################
+    ## (2) TRAP EXPOSURE
+    ## Note: assuming 'K[i]' is equal to 'first[i]' when i < N[1]  
+
+    g[i,k,1] <- 0
+    
+    for(r in 1:R){
+      
+      D[i,r,k] <- sqrt(((S[i,1,k]-X[r,1]) * (S[i,1,k]-X[r,1])) + ((S[i,2,k]-X[r,2]) * (S[i,2,k]-X[r,2])))
+      
+      g[i,k,r+1] <- exp(-D[i,r,k]/sigma[i,k]) 
+    }
+   
+    G[i,k] <- sum(g[i,k,]) # Total trap exposure
+
+    ## ####################################
+    ## (3) SECONDARY OCCASSIONS
+
+    for(j in 1:J[i,k]){
+      
+      P[i,j,k] <- (1 - exp(-lambda[Htt2[i,j,first[i]]]*G[i,k]))*z[i,k] ### ,gr[i] removed in lambda; Probability of being captured
+      
+      PI[i,k,j] <- seen[i,j,k] * (g[i,k,H[i,j,k]]/(G[i,k] + 0.000000001))*P[i,j,k] + (1 - seen[i,j,k])*(1-P[i,j,k]) ## AB: included new 'seen' variable
+      
+      PIdum[i,k,j]<- PI[i,k,j]+equals(PI[i,k,j],0)*0.0001  
+      
+      Ones[i,j,k] ~ dbern(PIdum[i,k,j])
+    }
+
+    ## ####################################
+  }
+}
+
+}### END MODEL LOOP
+
+

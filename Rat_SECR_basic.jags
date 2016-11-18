@@ -1,0 +1,55 @@
+
+
+model {
+
+
+#### PRIORS ####
+sigma ~ dunif(0, 20)     #set up the priors for the time-invariant parameters
+sigma2 <- sigma*sigma
+for(t in 1:T){
+lam0[t]~dgamma(.1,.1)
+gamma[t]~dunif(0, 1)
+phi[t]~dunif(0, 1)
+}
+
+
+
+#### MODEL ####       
+   for (i in 1:M){    #loop through the augmented population of M individuals
+       z[i,1] ~ dbern(gamma[1])       #state of individual i in primary period 1   
+       SX[i]~dunif(xl, xu)    #priors for the activity centers for each individual
+       SY[i]~dunif(yl, yu)    #xl is the lower x coordinate, xu is the upper x value
+
+     for(j in 1:ntraps) {     #loop through the J trap locations
+           D2[i,j] <- pow(SX[i]-grid[j,1], 2) + pow(SY[i]-grid[j,2],2)
+           g[i,j] <- exp(-D2[i,j]/(2*sigma2))
+       
+for(t in 1:T){   #loop through the primary periods
+## OBSERVATION MODEL FOR OTHER SESSIONS ##
+            pmean[i,j,t] <- K[j,t]*g[i,j]*lam0[t]    #K[j,t] - number of active trap nights that trap j was operational
+                  tmp[i,j,t]<-pmean[i,j,t]*z[i,t]##year[j,t] added - but not sure what that does in addition to K
+                  y[i,j,t]~dpois(tmp[i,j,t])
+} ## close the primary session loop
+               }## close the J trap loop
+
+for(t in 2:T){   #loop through the primary periods
+            mu[i,t] <- phi[t-1]*(z[i,t-1]) + gamma[t-1]*(1-z[i,t-1])
+            z[i,t] ~dbern(mu[i,t])    #state of individual i in primary period t 
+Rt[i,t-1]<-(1-z[i, t-1])*z[i,t]## this is 1 for individuals that did not exist in year 1 but existed in year 2 (recruits/immigrants)
+} ## close the primary session loop
+
+          }## close the individual loop
+
+
+#### DERIVED QUANTITIES ####    
+for(t in 1:T){
+N[t]<-sum(z[1:M,t])    ## derive N, the number of individuals in each session
+}
+
+for(t in 1:(T-1)){
+R[t]<-sum(Rt[1:M,t])## these are recruited individuals
+}
+
+} ## close the model loop
+
+

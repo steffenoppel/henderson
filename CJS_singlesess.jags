@@ -1,0 +1,75 @@
+
+
+
+model {
+
+
+#### PRIORS ####
+
+#  Space use and recapture probability parameters:
+#beta.size ~ dunif(-10,10)## adjust sigma according to size
+#beta.size.sq ~ dunif(-10,10)## adjust sigma according to size, quadratic effect
+
+for (s in 1:2){# movement varies by sex
+sigma[s] ~ dunif(0, 200)     
+sigma2[s] <- sigma[s]*sigma[s]
+}
+
+for(t in 1:T){# capture probability varies by day
+#for (u in 1:2){## capture probability differs by traptype
+lam0[t]~dunif(0,1)
+#}
+}
+
+for(s in 1:2){# survival probability varies by sex
+phi[s]~dunif(0, 1)
+}
+
+
+#### MODEL ####       
+   for (i in 1:M){    # loop through the population of M trapped rats
+       z[i,first[i]] <- 1       # CJS is conditional on capture, so alive state in first capture period must be 1   
+       SX[i,first[i]]~dunif(xl[i], xu[i])    # priors for the activity centers for each individual at first capture
+       SY[i,first[i]]~dunif(yl[i], yu[i])    # xl is the lower x coordinate, xu is the upper x value
+
+## OBSERVATION MODEL FOR FIRST SESSION ##
+     for(j in 1:ntraps) {     #loop through the J trap locations
+           D2[i,j,first[i]] <- sqrt(pow(SX[i,first[i]]-grid[j,1], 2) + pow(SY[i,first[i]]-grid[j,2],2))## calculate distance from home range center to each trap location
+           lam[i,j,first[i]] <- lam0[first[i]]*exp(-D2[i,j,first[i]]/(sigma[gr[i]]))## exponential detection function based on distance
+           tmp[i,j,first[i]] <- lam[i,j,first[i]]*ON[j,first[i]]## correct by activity index
+           y[i,j,first[i]] ~ dbern(tmp[i,j,first[i]])## bernoulli draw of capture 
+}# close the trap loop for first capture period
+
+## OBSERVATION MODEL FOR SUBSEQUENT SESSIONS ##       
+for(t in (first[i]+1):T){   #loop through the primary periods after the first capture session
+       SX[i,t]~dunif(xl[i], xu[i])    # priors for the activity centers for each individual at first capture
+       SY[i,t]~dunif(yl[i], yu[i])    # xl is the lower x coordinate, xu is the upper x value
+
+     for(j in 1:ntraps) {     #loop through the J trap locations
+           D2[i,j,t] <- sqrt(pow(SX[i,t]-grid[j,1], 2) + pow(SY[i,t]-grid[j,2],2))## calculate distance from home range center to each trap location
+           lam[i,j,t] <- lam0[t]*exp(-D2[i,j,t]/(sigma2[gr[i]]))## exponential detection function based on distance
+           tmp[i,j,t] <- lam[i,j,t]*ON[j,t]*z[i,t]## correct by activity index
+           y[i,j,t] ~ dbern(tmp[i,j,t])## bernoulli draw of capture probability 
+}# close the trap loop for subsequent capture periods
+
+### SURVIVAL MODEL FOR TIME PERIOD T ##
+phiUP[i,t]<-z[i,t-1]*phi[gr[i]]## sex-specific survival probability
+z[i,t]~dbern(phiUP[i,t])
+
+} ## close the primary session loop
+
+}## close the individual loop
+
+
+### DERIVED PARAMETERS FOR SURVIVAL AND CAPTURE PROBABILITY ###
+
+for(s in 1:2){
+month.surv[s]<- pow(phi[s],30)
+}
+
+
+} ## close the model loop
+
+
+
+
