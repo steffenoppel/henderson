@@ -240,7 +240,13 @@ dim(out)
 
 surv.dat<-out[1:12,]			## annual survival
 hr.dat<-out[15:28,]
-move.dat<-out[29:421,]
+move.dat<-out[29:552,]
+
+
+### add estimates from BB:
+outBB<-read.table("Henderson_spatialCJS_output_7occ_BB.csv", sep=",", header=T)
+surv.datBB<-outBB[1:4,]			## annual survival
+hr.datBB<-outBB[8:13,]
 
 
 
@@ -268,11 +274,32 @@ plotM<-subset(surv.dat, Sex=="male")
 plotM$x<-as.numeric(plotM$session)+0.2
 
 
+#### ADD BB DATA ###
+surv.datBB$Sex<-rep(c('male','female'), each=2)
+names(surv.datBB)[c(3,7)]<-c("lcl","ucl")
+
+surv.datBB$session<-as.numeric(substr(surv.datBB$parameter,14,14))			### change to 13 for constant survival
+surv.datBB$sessname<-"June"
+surv.datBB$sessname<-ifelse(surv.datBB$session==1,"early Aug",surv.datBB$sessname)
+surv.datBB$sessname<-ifelse(surv.datBB$session==2,"late Aug",surv.datBB$sessname)
+plotFBB<-subset(surv.datBB, Sex=="female")
+plotFBB$x<-as.numeric(plotFBB$session)+2.9
+plotMBB<-subset(surv.datBB, Sex=="male")
+plotMBB$x<-as.numeric(plotMBB$session)+3.3
+
+
+
+
 pdf("A:\\MANUSCRIPTS\\in_prep\\Henderson\\Rat_homerange\\Rat_surv_prob.pdf", width=11, height=8)
 par(mar=c(4,5,1,1), oma=c(1,1,0,0))
 errbar(plotF$x,plotF$mean,plotF$lcl,plotF$ucl,type='p', las=1,ylab="Monthly survival probability", xlab="", main="", xlim=c(0.5,6.5), ylim=c(0,1), cex=1.5, cex.lab=1.5, axes=F, pch=16,col='darkred', frame=F)
 par(new=T)
 errbar(plotM$x,plotM$mean,plotM$lcl,plotM$ucl,type='p', axes=F, las=1,ylab="", xlab="", main="", xlim=c(0.5,6.5),ylim=c(0,1), cex=1.5, pch=16,col='navyblue', frame=F)
+par(new=T)
+errbar(plotFBB$x,plotFBB$mean,plotFBB$lcl,plotFBB$ucl,type='p', las=1,ylab="", xlab="", main="", xlim=c(0.5,6.5), ylim=c(0,1), cex=1.5, cex.lab=1.5, axes=F, pch=1,col='darkred', frame=F)
+par(new=T)
+errbar(plotMBB$x,plotMBB$mean,plotMBB$lcl,plotMBB$ucl,type='p', axes=F, las=1,ylab="", xlab="", main="", xlim=c(0.5,6.5),ylim=c(0,1), cex=1.5, pch=1,col='navyblue', frame=F)
+
 axis(1, at=c(1:6), labels=plotF$sessname, cex.axis=1.5, cex.lab=1.5)
 axis(2, at=seq(0,1,0.2), las=1, cex.axis=1.5, cex.lab=1.5)
 legend('bottomleft', pch=16, col=c('darkred','navyblue'),legend=c("female","male"), cex=1.4, bty='n')
@@ -283,7 +310,7 @@ dev.off()
 
 
 ##########################################################################################################
-################ PLOT HOME RANGE SIZE BETWEEN SESSIONS #####################################
+################ PLOT HOME RANGE RADIUS BETWEEN SESSIONS #####################################
 ##########################################################################################################
 
 
@@ -312,19 +339,75 @@ hr.dat$HR_ucl[l]<-circular.r (p = 0.95, detectfn = 'EX', sigma = hr.dat$ucl[l], 
 plotF<-subset(hr.dat, Sex=="female")
 plotF$x<-as.numeric(plotF$session)-0.2
 plotM<-subset(hr.dat, Sex=="male")
-plotM$x<-as.numeric(plotM$session)+0.2
+plotM$x<-as.numeric(plotM$session)+0.1
+
+
+### ADD BEACHBACK DATA
+
+hr.datBB$Sex<-rep(c('male','female'),each=3)
+names(hr.datBB)[c(3,7)]<-c("lcl","ucl")
+
+hr.datBB$session<-as.numeric(substr(hr.datBB$parameter,7,7))
+hr.datBB$sessname<-"June"
+hr.datBB$sessname<-ifelse(hr.datBB$session==1,"early Aug",hr.datBB$sessname)
+hr.datBB$sessname<-ifelse(hr.datBB$session==2,"late Aug",hr.datBB$sessname)
+hr.datBB$sessname<-ifelse(hr.datBB$session==3,"Sept",hr.datBB$sessname)
+
+
+### CALCULATE HOME RANGE RADIUS
+library(secr)
+for (l in 1:dim(hr.datBB)[1]){
+hr.datBB$HR_rad[l]<-circular.r (p = 0.95, detectfn = 'EX', sigma = hr.datBB$mean[l], hazard = TRUE)		### this is the mean home-range radius of rats in m
+hr.datBB$HR_lcl[l]<-circular.r (p = 0.95, detectfn = 'EX', sigma = hr.datBB$lcl[l], hazard = TRUE)		### this is the mean home-range radius of rats in m
+hr.datBB$HR_ucl[l]<-circular.r (p = 0.95, detectfn = 'EX', sigma = hr.datBB$ucl[l], hazard = TRUE)		### this is the mean home-range radius of rats in m
+}
+
+
+plotFBB<-subset(hr.datBB, Sex=="female")
+plotFBB$x<-as.numeric(plotFBB$session)+2.9
+plotMBB<-subset(hr.datBB, Sex=="male")
+plotMBB$x<-as.numeric(plotMBB$session)+3.2
+
+
 
 
 
 #pdf("A:\\MANUSCRIPTS\\in_prep\\Henderson\\Rat_homerange\\Rat_HR_size.pdf", width=11, height=8)
-par(mar=c(4,5,1,1), oma=c(1,1,0,0))
+par(mar=c(2,5,1,1), oma=c(1,1,0,0), mgp=c(4,1,0))
 errbar(plotF$x,plotF$HR_rad,plotF$HR_lcl,plotF$HR_ucl,type='p', las=1,ylab="Home range radius (m)", xlab="", main="", xlim=c(0.5,7.5), ylim=c(0,400), cex=1.5, cex.lab=1.5, axes=F, pch=16,col='darkred', frame=F)
 par(new=T)
 errbar(plotM$x,plotM$HR_rad,plotM$HR_lcl,plotM$HR_ucl,type='p', axes=F, las=1,ylab="", xlab="", main="", xlim=c(0.5,7.5),ylim=c(0,400), cex=1.5, pch=16,col='navyblue', frame=F)
+par(new=T)
+errbar(plotMBB$x,plotMBB$HR_rad,plotMBB$HR_lcl,plotMBB$HR_ucl,type='p', axes=F, las=1,ylab="", xlab="", main="", xlim=c(0.5,7.5),ylim=c(0,400), cex=1.5, pch=1,col='navyblue', frame=F)
+par(new=T)
+errbar(plotFBB$x,plotFBB$HR_rad,plotFBB$HR_lcl,plotFBB$HR_ucl,type='p', las=1,ylab="", xlab="", main="", xlim=c(0.5,7.5), ylim=c(0,400), cex=1.5, cex.lab=1.5, axes=F, pch=1,col='darkred', frame=F)
 axis(1, at=c(1:7), labels=plotF$sessname, cex.axis=1.5, cex.lab=1.5)
 axis(2, at=seq(0,400,100), las=1, cex.axis=1.5, cex.lab=1.5)
 legend('topleft', pch=16, col=c('darkred','navyblue'),legend=c("female","male"), cex=1.4, bty='n')
 dev.off()
+
+
+
+
+### CALCULATE HOME RANGE AREA
+hr.dat$AREA<-((hr.dat$HR_rad^2)*pi)/10000
+hr.datBB$AREA<-((hr.datBB$HR_rad^2)*pi)/10000
+
+hr.dat$AREA_lcl<-((hr.dat$HR_lcl^2)*pi)/10000
+hr.datBB$AREA_lcl<-((hr.datBB$HR_lcl^2)*pi)/10000
+
+
+### CALCULATE BAIT IN MIN HOME RANGE
+platBait<-10000			## g/ha
+beachBait<-40000			## g/ha
+pellet<-2.5				## g for one bait pellet
+
+platBaitDensity<-platBait/pellet
+beachBaitDensity<-beachBait/pellet
+
+min(hr.dat$AREA_lcl)*platBaitDensity
+min(hr.datBB$AREA_lcl)*beachBaitDensity
+
 
 
 
@@ -387,3 +470,31 @@ legend('topleft', pch=16, col=c('darkred','navyblue'),legend=c("female","male"),
 
 
 
+
+
+
+
+
+
+##########################################################################################################
+################ CORRELATION BETWEEN SURVIVAL AND MOVEMENT PARAMETERS #####################################
+##########################################################################################################
+
+str(ratmodel$sims.list$sigma)
+str(ratmodel$sims.list$monthly.surv)
+
+correlations<-data.frame(session=rep(c(1:6), each=2), sex=rep(c(1:2),6), sigma=0,surv=0)
+#par(mfrow=c(6,2))
+for (sess in 1:6){
+for (sex in 1:2){
+title<-cor.test(ratmodel$sims.list$sigma[,sess,sex],ratmodel$sims.list$monthly.surv[,sess,sex])
+#plot(ratmodel$sims.list$sigma[,sess,sex]~ratmodel$sims.list$monthly.surv[,sess,sex], pch=16, cex=0.5, xlab="", ylab="")
+correlations$sigma[correlations$sex==sex & correlations$session==sess]<-mean(ratmodel$sims.list$sigma[,sess,sex])
+correlations$surv[correlations$sex==sex & correlations$session==sess]<-mean(ratmodel$sims.list$monthly.surv[,sess,sex])
+}
+}
+
+plot(sigma~surv, correlations)
+cor.test(correlations$sigma,correlations$surv, method='spearman')
+cor.test(correlations$sigma[correlations$sex==1],correlations$surv[correlations$sex==1], method='spearman')
+cor.test(correlations$sigma[correlations$sex==2],correlations$surv[correlations$sex==2], method='spearman')
