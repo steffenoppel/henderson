@@ -1,0 +1,142 @@
+
+
+model {
+
+
+#### PRIORS AND CONSTRAINTS ####
+
+## Movement around home-range centre affects capture probability ###
+## INCLUDED two part mixture for the normal rats and the long-moving ones
+
+prop.longmoves ~ dbeta(0.5,2)## this sets up a prior for drawing the sigma 
+
+for (i in 1:M){
+move.selector[i] ~ dbern(prop.longmoves)## draws a random number of 0 or 1, reflecting the two movement distributions
+
+for(t in first[i]:T){# allow different sigma for each session
+#for (s in 1:2){# allow different sigma for two sexes
+#sigma[t] ~ dunif(0, 200)     
+
+# prior for very long movements
+sigma[i,t,2]~dunif(60,400)## index 2 is for the crazy moving rats
+# prior for normal movements
+sigma[i,t,1]~dnorm(30,0.1)## index 1 is for the normal moving rats - what we expect with sigma 20-40
+
+sigma2[i,t] <- (sigma[i,t,move.selector[i]+1]*sigma[i,t,move.selector[i]+1])
+}
+}
+
+
+
+## Survival probability varies by sex and season - specified as annual survival###
+for(t in 1:(T-1)){
+daily.phi[t] ~ dunif(0.9,1)### 0.997,0.9994
+ annual.surv[t]<-pow(daily.phi[t], 365)
+ monthly.surv[t]<-pow(daily.phi[t], 30)
+    phi[t] <- pow(daily.phi[t], interval[t])
+  lphi[t] <- log(phi[t]/(1-phi[t]))### transform to logit scale to allow inclusion of continuous covariates
+}
+
+
+
+
+
+#### TRAP-DEPENDENT CAPTURE PROBABILITY ###
+
+## Basic capture probability depends on trap type and season###
+for(t in 1:T){
+for(f in 1:3){# trap types Sherman, Tomahawk and snap trap
+lam0[t,f]~dgamma(0.1,0.1)# for poisson draw
+  ##lp[t]<-log(lam0[t])# transform to log scale to include covariates
+}
+}
+
+
+
+#### INDIVIDUAL MOVEMENT HETEROGENEITY ###
+## rather than define per individual, make this a mixture
+
+## Movement between primary sessions ###
+for (i in 1:M){
+sigma.ar[i]~dunif(0,200)
+tau[i]<-1/(sigma.ar[i]*sigma.ar[i])
+}
+
+#prop.longmoves ~ dbeta(0.5,0.5)## this sets up a prior for drawing
+
+#for (i in 1:M){
+#move.selector[i] ~ dbern(prop.longmoves)## draws a random number of 1 or 2, reflecting the two movement distributions
+# prior for very long movements
+#sigma.ar[i, 1]~dunif(60,200)
+# prior for normal movements
+#sigma.ar[i, 2]~dnorm(30,0.001)
+
+#tau[i]<-1/(sigma.ar[i,move.selector[i]+1]*sigma.ar[i,move.selector[i]+1])
+#}
+
+
+#### COVARIATE EFFECTS #####
+
+#b.sex.capt ~ dnorm(0,1)
+#b.rain.capt ~ dnorm(0,1)
+
+b.sex.surv ~ dnorm(0,1)
+b.rain.surv ~ dnorm(0,1)
+
+#ranef.capt ~ dunif(0,5)
+#tau.capt <- 1/(ranef.capt*ranef.capt)
+
+
+
+
+#### MODEL LIKELIHOOD ####  
+
+
+### LOOP OVER ALL INDIVIDUALS ##     
+   for (i in 1:M){    # loop through the population of M trapped rats
+       z[i,first[i]] <- 1       # CJS is conditional on capture, so alive state in first capture period must be 1   
+       SX[i,first[i]]~dunif(xl[i], xu[i])    # priors for the activity centers for each individual at first capture
+       SY[i,first[i]]~dunif(yl[i], yu[i])    # xl is the lower x coordinate, xu is the upper x value
+
+## OBSERVATION MODEL FOR FIRST SESSION ##
+     for(j in 1:ntraps) {     #loop through the J trap locations
+           D2[i,j,first[i]] <- pow(SX[i,first[i]]-grid[j,1], 2) + pow(SY[i,first[i]]-grid[j,2],2)## calculate distance from home range center to each trap location
+           lam[i,j,first[i]] <- lam0[first[i],ttyp[j,first[i]]]*exp(-D2[i,j,first[i]]/(2*sigma2[i,first[i]]))## exponential detection function based on distance
+           #log(lam[i,j,first[i]]) <- (lp[first[i]]*(-D2[i,j,first[i]]/(2*sigma2[i,first[i]])))+ 1/sqrt(tau.capt)*eta[i] + b.rain.capt*rain[first[i]] + b.sex.capt*ALT[i,2]## exponential detection function based on distance
+           tmp[i,j,first[i]] <- lam[i,j,first[i]]*K[j,first[i]]## correct by number of nights this trap was actually available
+           y[i,j,first[i]] ~ dpois(tmp[i,j,first[i]])## count of observations at trap j is a poisson draw of capture probability
+}# close the trap loop for first capture period
+
+hrradius[i,first[i]]<-pow(sigma2[i,first[i]],0.5)## home range radius as 'sigma' for conversion by secr
+
+
+## OBSERVATION MODEL FOR SUBSEQUENT SESSIONS ##       
+for(t in (first[i]+1):T){   #loop through the primary periods after the first capture session
+       SX[i,t]~dnorm(SX[i,t-1], tau[i])#T(xl[i], xu[i])    # tau[t,ALT[i,2]]; priors for the activity centers based on movement from first capture location, truncated by state space
+       SY[i,t]~dnorm(SY[i,t-1], tau[i])#T(yl[i], yu[i])   # tau[t,ALT[i,2]]; xl is the lower x coordinate, xu is the upper x value
+
+     for(j in 1:ntraps) {     #loop through the J trap locations
+           D2[i,j,t] <- pow(pow(SX[i,t]-grid[j,1], 2) + pow(SY[i,t]-grid[j,2],2),0.5)## calculate distance from home range center to each trap location
+           lam[i,j,t] <- lam0[t,ttyp[j,t]]*exp(-D2[i,j,t]/(2*sigma2[i,t]))## exponential detection function based on distance
+           #log(lam[i,j,t]) <- (lp[t]*(-D2[i,j,t]/(2*sigma2[i,t])))+ 1/sqrt(tau.capt)*eta[i] + b.rain.capt*rain[t] + b.sex.capt*ALT[i,2]## exponential detection function based on distance
+           tmp[i,j,t] <- lam[i,j,t]*K[j,t]*z[i,t]## correct by number of nights this trap was actually available and by alive state of individual i at time t
+           y[i,j,t] ~ dpois(tmp[i,j,t])## count of observations at trap j is a poisson draw of 
+}# close the trap loop for subsequent capture periods
+
+### SURVIVAL MODEL FOR TIME PERIOD T ##
+    logit(PHI[i,t-1]) <- lphi[t-1] + b.sex.surv*ALT[i,2] + b.rain.surv*rain[t-1]
+phiUP[i,t]<-z[i,t-1]*PHI[i,t-1]# changed from phi phi when not constant
+z[i,t]~dbern(phiUP[i,t])
+
+### DERIVED PARAMETERS FOR HOME RANGE AND MOVEMENTS ##
+hrradius[i,t]<-z[i,t]*pow(sigma2[i,t],0.5)## home range radius as 'sigma' for conversion by secr
+hrshift[i,t-1] <- pow(pow(SX[i,t]-SX[i,t-1], 2) + pow(SY[i,t]-SY[i,t-1],2),0.5)## shift of home range centre from one prim occ to next
+
+} ## close the primary session loop
+
+          }## close the individual loop
+
+
+} ## close the model loop
+
+
